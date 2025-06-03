@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organized Flower Field</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+</head>
+<body style="margin: 0; padding: 0; overflow: hidden;">
+    <script>
+        let flowers = [];
+        let grassBlades = [];
+        let clouds = [];
+        let time = 0;
+        
+        // Flower types with distinct characteristics
+        const flowerTypes = [
+            { name: 'daisy', petals: 12, petalShape: 'thin', centerSize: 0.2, colors: [[255, 255, 255], [255, 192, 203], [255, 255, 224]] },
+            { name: 'sunflower', petals: 16, petalShape: 'wide', centerSize: 0.4, colors: [[255, 215, 0], [255, 140, 0], [255, 165, 0]] },
+            { name: 'rose', petals: 8, petalShape: 'round', centerSize: 0.15, colors: [[255, 0, 0], [255, 20, 147], [220, 20, 60], [255, 105, 180]] },
+            { name: 'tulip', petals: 6, petalShape: 'cup', centerSize: 0.1, colors: [[255, 0, 255], [138, 43, 226], [255, 0, 0], [255, 165, 0]] },
+            { name: 'poppy', petals: 4, petalShape: 'wide', centerSize: 0.25, colors: [[255, 69, 0], [255, 0, 0], [255, 20, 147]] },
+            { name: 'lavender', petals: 20, petalShape: 'tiny', centerSize: 0.1, colors: [[147, 112, 219], [138, 43, 226], [186, 85, 211]] },
+            { name: 'wildflower', petals: 5, petalShape: 'simple', centerSize: 0.2, colors: [[255, 255, 0], [0, 191, 255], [255, 20, 147], [50, 205, 50]] }
+        ];
+
+        function setup() {
+            createCanvas(windowWidth, windowHeight);
+            randomSeed(millis()); // Different seed each launch
+            generateField();
+        }
+
+        function generateField() {
+            flowers = [];
+            grassBlades = [];
+            clouds = [];
+            
+            // Create organized rows of flowers with some randomness
+            let rows = 8;
+            let cols = Math.floor(width / 60);
+            
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    // Base position with some random offset
+                    let baseX = (col + 0.5) * (width / cols);
+                    let baseY = height * 0.3 + (row * height * 0.08);
+                    
+                    // Add 2-4 flowers per grid cell for density
+                    let flowerCount = floor(random(2, 5));
+                    
+                    for (let f = 0; f < flowerCount; f++) {
+                        let x = baseX + random(-25, 25);
+                        let y = baseY + random(-15, 15);
+                        
+                        // Ensure flowers stay in bounds
+                        x = constrain(x, 30, width - 30);
+                        y = constrain(y, height * 0.3, height * 0.9);
+                        
+                        let flowerType = random(flowerTypes);
+                        let flowerColor = random(flowerType.colors);
+                        
+                        flowers.push({
+                            x: x,
+                            y: y,
+                            size: random(15, 45),
+                            type: flowerType,
+                            color: color(flowerColor[0], flowerColor[1], flowerColor[2]),
+                            swayOffset: random(TWO_PI),
+                            stemHeight: random(25, 90),
+                            swayAmount: random(2, 6),
+                            bloomPhase: random(TWO_PI)
+                        });
+                    }
+                }
+            }
+            
+            // Dense grass coverage
+            for (let i = 0; i < 400; i++) {
+                grassBlades.push({
+                    x: random(width),
+                    y: random(height * 0.5, height),
+                    height: random(15, 70),
+                    swayOffset: random(TWO_PI),
+                    thickness: random(1, 3),
+                    greenness: random(100, 200)
+                });
+            }
+            
+            // Varied clouds
+            for (let i = 0; i < 12; i++) {
+                clouds.push({
+                    x: random(-150, width + 150),
+                    y: random(30, 180),
+                    size: random(40, 100),
+                    speed: random(0.1, 0.6),
+                    opacity: random(120, 200),
+                    shape: floor(random(3)) // Different cloud shapes
+                });
+            }
+        }
+
+        function draw() {
+            time += 0.015;
+            
+            // Dynamic sky gradient
+            for (let y = 0; y < height; y++) {
+                let inter = map(y, 0, height, 0, 1);
+                let skyColor1 = color(135 + sin(time * 0.1) * 20, 206, 235);
+                let skyColor2 = color(144, 238 + sin(time * 0.05) * 15, 144);
+                let c = lerpColor(skyColor1, skyColor2, inter);
+                stroke(c);
+                line(0, y, width, y);
+            }
+            
+            // Draw varied clouds
+            noStroke();
+            for (let cloud of clouds) {
+                fill(255, 255, 255, cloud.opacity);
+                drawCloud(cloud.x, cloud.y, cloud.size, cloud.shape);
+                cloud.x += cloud.speed;
+                if (cloud.x > width + 150) {
+                    cloud.x = -150;
+                }
+            }
+            
+            // Draw varied grass
+            for (let grass of grassBlades) {
+                stroke(34, grass.greenness, 34);
+                strokeWeight(grass.thickness);
+                let sway = sin(time + grass.swayOffset) * 5;
+                line(grass.x, grass.y, grass.x + sway, grass.y - grass.height);
+            }
+            
+            // Sort flowers by depth for proper rendering
+            flowers.sort((a, b) => a.y - b.y);
+            
+            // Draw flowers with variety
+            for (let flower of flowers) {
+                drawFlower(flower);
+            }
+        }
+
+        function drawFlower(flower) {
+            let sway = sin(time + flower.swayOffset) * flower.swayAmount;
+            let bloom = sin(time * 0.5 + flower.bloomPhase) * 0.1 + 1;
+            
+            // Draw stem with slight curve
+            stroke(34, 120, 34);
+            strokeWeight(3);
+            let stemCurve = sway * 0.3;
+            bezier(
+                flower.x, flower.y,
+                flower.x + stemCurve, flower.y - flower.stemHeight * 0.3,
+                flower.x + stemCurve, flower.y - flower.stemHeight * 0.7,
+                flower.x + sway, flower.y - flower.stemHeight
+            );
+            
+            // Flower head position
+            let flowerX = flower.x + sway;
+            let flowerY = flower.y - flower.stemHeight;
+            
+            // Draw petals based on flower type
+            noStroke();
+            fill(flower.color);
+            
+            let petalSize = flower.size * bloom;
+            
+            for (let i = 0; i < flower.type.petals; i++) {
+                let angle = (TWO_PI / flower.type.petals) * i;
+                let petalDistance = petalSize * 0.3;
+                let petalX = flowerX + cos(angle) * petalDistance;
+                let petalY = flowerY + sin(angle) * petalDistance;
+                
+                // Different petal shapes based on flower type
+                switch(flower.type.petalShape) {
+                    case 'thin':
+                        ellipse(petalX, petalY, petalSize * 0.3, petalSize * 0.8);
+                        break;
+                    case 'wide':
+                        ellipse(petalX, petalY, petalSize * 0.8, petalSize * 0.5);
+                        break;
+                    case 'round':
+                        ellipse(petalX, petalY, petalSize * 0.6, petalSize * 0.6);
+                        break;
+                    case 'cup':
+                        // Tulip-like shape
+                        push();
+                        translate(petalX, petalY);
+                        rotate(angle);
+                        ellipse(0, 0, petalSize * 0.4, petalSize * 0.9);
+                        pop();
+                        break;
+                    case 'tiny':
+                        ellipse(petalX, petalY, petalSize * 0.2, petalSize * 0.3);
+                        break;
+                    case 'simple':
+                        ellipse(petalX, petalY, petalSize * 0.5, petalSize * 0.5);
+                        break;
+                }
+            }
+            
+            // Draw flower center
+            let centerSize = flower.size * flower.type.centerSize;
+            fill(255, 255, 0);
+            ellipse(flowerX, flowerY, centerSize);
+            
+            // Add center details
+            fill(255, 200, 0);
+            ellipse(flowerX, flowerY, centerSize * 0.6);
+            
+            // Some flowers get extra details
+            if (flower.type.name === 'sunflower') {
+                fill(139, 69, 19);
+                for (let i = 0; i < 8; i++) {
+                    let detailAngle = (TWO_PI / 8) * i;
+                    let detailX = flowerX + cos(detailAngle) * centerSize * 0.2;
+                    let detailY = flowerY + sin(detailAngle) * centerSize * 0.2;
+                    ellipse(detailX, detailY, 2);
+                }
+            }
+        }
+
+        function drawCloud(x, y, size, shape) {
+            switch(shape) {
+                case 0: // Fluffy cloud
+                    ellipse(x, y, size, size * 0.6);
+                    ellipse(x + size * 0.3, y, size * 0.8, size * 0.5);
+                    ellipse(x - size * 0.3, y, size * 0.8, size * 0.5);
+                    ellipse(x, y - size * 0.2, size * 0.6, size * 0.4);
+                    break;
+                case 1: // Stretched cloud
+                    ellipse(x, y, size * 1.2, size * 0.4);
+                    ellipse(x + size * 0.4, y, size * 0.6, size * 0.3);
+                    ellipse(x - size * 0.4, y, size * 0.6, size * 0.3);
+                    break;
+                case 2: // Puffy cloud
+                    ellipse(x, y, size * 0.8, size * 0.8);
+                    ellipse(x + size * 0.2, y - size * 0.1, size * 0.6, size * 0.6);
+                    ellipse(x - size * 0.2, y + size * 0.1, size * 0.5, size * 0.5);
+                    break;
+            }
+        }
+
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+            generateField();
+        }
+
+        function mousePressed() {
+            if (mouseY > height * 0.25) {
+                let flowerType = random(flowerTypes);
+                let flowerColor = random(flowerType.colors);
+                
+                flowers.push({
+                    x: mouseX,
+                    y: mouseY,
+                    size: random(20, 40),
+                    type: flowerType,
+                    color: color(flowerColor[0], flowerColor[1], flowerColor[2]),
+                    swayOffset: random(TWO_PI),
+                    stemHeight: random(30, 80),
+                    swayAmount: random(2, 6),
+                    bloomPhase: random(TWO_PI)
+                });
+            }
+        }
+
+        // Spacebar to regenerate field
+        function keyPressed() {
+            if (key === ' ') {
+                randomSeed(millis());
+                generateField();
+            }
+        }
+    </script>
+</body>
+</html>
